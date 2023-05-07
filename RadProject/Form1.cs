@@ -8,14 +8,21 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Npgsql;
+using Microsoft.Office.Interop.Excel;
 
 namespace RadProject
 {
     public partial class Form1 : Form
     {
 
+        string[] report_columns = new string[] { "contract_id", "first_name", "last_name", "title", "amount", "price" };
+
+        string[] ru_report_columns = new string[] { "Номер контракта", "Имя", "Фамилия", "Название товара", "Количество", "Сумма" };
+
+        List<string[]> data = new List<string[]>();
+
         DataSet ds = new DataSet();
-        DataTable dt = new DataTable();
+        System.Data.DataTable dt = new System.Data.DataTable();
         NpgsqlConnection con;
 
         public Form1(NpgsqlConnection con)
@@ -82,9 +89,10 @@ namespace RadProject
 
         private void button1_Click(object sender, EventArgs e)
         {
-            string sql = @"SELECT cl.first_name, cl.last_name, gd.title, ct.amount, ct.total_price FROM Contract ct
+            string sql = @"SELECT ct.contract_id, cl.first_name, cl.last_name, gd.title, cg.amount, cg.price FROM Contract ct
                             JOIN Client cl ON cl.client_id = ct.client_id
-                            JOIN Goods gd ON gd.goods_id = ct.goods_id
+                            JOIN Contract_Goods cg ON cg.contract_id = ct.contract_id
+                            JOIN Goods gd ON gd.goods_id = cg.goods_id
                             WHERE ct.status = 'ready for shipment' and ct.client_id = ANY(:values) 
 	                            and ct.register_date >= :start_date and ct.register_date <= :end_date;";
 
@@ -109,10 +117,41 @@ namespace RadProject
             NpgsqlDataReader reader = com.ExecuteReader();
             while (reader.Read()) {
                 string str = "";
-                var el = reader["first_name"].ToString();
-                MessageBox.Show(el);
+                //MessageBox.Show(el);
+                string[] els = new string[report_columns.Length];
+                for (int i = 0; i < report_columns.Length; i++) {
+                    string el = reader[report_columns[i]].ToString();
+                    els[i] = el;
+                }
+                data.Add(els);
             }
             reader.Close();
+
+            make_report();
+        }
+
+        private void make_report() {
+            OpenFileDialog ofd = new OpenFileDialog();
+            ofd.ShowDialog();
+            string filename = ofd.FileName;
+            Microsoft.Office.Interop.Excel.Application excelObject = new Microsoft.Office.Interop.Excel.Application();
+            excelObject.Visible = true;
+            Workbook wb = excelObject.Workbooks.Open(filename, 0, false, 5, "", "", false, XlPlatform.xlWindows, "", true, false, 0, true, false, false);
+            Worksheet wsh = wb.Sheets[1];
+            wsh.Columns.AutoFit();
+
+            for (int i = 0; i < ru_report_columns.Length; i++) {
+                wsh.Cells[1, i + 1] = ru_report_columns[i];
+            }
+
+            for (int i = 0; i < data.Count; i++) {
+                for (int j = 0; j < report_columns.Length; j++) {
+                    wsh.Cells[i + 2, j + 1] = data[i][j];
+                }
+            }
+            
+            wb.Save();
+            wb.Close();
         }
     }
 }
