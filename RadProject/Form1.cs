@@ -15,9 +15,9 @@ namespace RadProject
     public partial class Form1 : Form
     {
 
-        string[] report_columns = new string[] { "contract_id", "first_name", "last_name", "title", "amount", "price" };
+        string[] report_columns = new string[] { "title", "amount", "summary_price" };
 
-        string[] ru_report_columns = new string[] { "Номер контракта", "Имя", "Фамилия", "Название товара", "Количество", "Сумма" };
+        string[] ru_report_columns = new string[] { "Название товара", "Количество", "Сумма" };
 
         List<string[]> data = new List<string[]>();
 
@@ -89,12 +89,13 @@ namespace RadProject
 
         private void button1_Click(object sender, EventArgs e)
         {
-            string sql = @"SELECT ct.contract_id, cl.first_name, cl.last_name, gd.title, cg.amount, cg.price FROM Contract ct
-                            JOIN Client cl ON cl.client_id = ct.client_id
-                            JOIN Contract_Goods cg ON cg.contract_id = ct.contract_id
-                            JOIN Goods gd ON gd.goods_id = cg.goods_id
-                            WHERE ct.status = 'ready for shipment' and ct.client_id = ANY(:values) 
-	                            and ct.register_date >= :start_date and ct.register_date <= :end_date;";
+            string sql = @"SELECT (SELECT go.title FROM Goods go WHERE cg.goods_id = go.goods_id), sum(cg.amount) as amount, sum(cg.price) as summary_price FROM (
+	                                SELECT cg1.goods_id, cg1.amount, cg1.price FROM Contract_goods cg1
+	                                JOIN Contract ct ON ct.contract_id = cg1.contract_id
+	                                WHERE ct.status = 'ready for shipment' and ct.client_id = ANY(:values) 
+			                                and ct.register_date >= :start_date and ct.register_date <= :end_date
+                                ) as cg
+                                GROUP BY cg.goods_id;";
 
             List<int> values = new List<int>();
             foreach (int index in checkedListBox1.CheckedIndices)

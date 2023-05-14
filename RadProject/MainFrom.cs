@@ -19,6 +19,8 @@ namespace RadProject
         DataTable dt = new DataTable();
         NpgsqlConnection con;
 
+        DataGridView goods;
+
         Dictionary<string, string[]> buttons_tables = new Dictionary<string, string[]>()
         {
             ["button1"] = new string[] { "Client", "Клиенты" },
@@ -37,10 +39,26 @@ namespace RadProject
                     "Server=localhost; Port=5432; Username=postgres; Password=2305; database=RadStore"
                 );
             con.Open();
+
+            goods = new DataGridView();
+            goods.Location = new Point(125, 350);
+            //contracts.Size = new Size(200, 200);
+            goods.Size = new Size(833, 250);
+            goods.MaximumSize = new Size(833, 250);
+            goods.BackgroundColor = System.Drawing.SystemColors.Control;
+            goods.Name = "goods";
+            goods.AutoSizeRowsMode = DataGridViewAutoSizeRowsMode.AllCellsExceptHeaders;
+            goods.AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            goods.AutoSize = true;
+            goods.BorderStyle = BorderStyle.None;
+            goods.AllowUserToAddRows = false;
         }
 
         private void update_view(string table)
         {
+            if (this.Controls.Contains(goods))
+                goods.Columns.Clear();
+
             if (current_table == "Client" || current_table == "Goods")
             {
                 string sql = "SELECT * FROM " + current_table + ";";
@@ -49,6 +67,7 @@ namespace RadProject
                 da.Fill(ds);
                 dt = ds.Tables[0];
                 dataGridView1.DataSource = dt;
+                dataGridView1.Size = new Size(833, 511);
             }
             else if (current_table == "Contract") {
                 string sql = @"SELECT ct.contract_id, cl.last_name as client, ct.pay_type, ct.status, ct.register_date, ct.total_price 
@@ -59,6 +78,8 @@ namespace RadProject
                 da.Fill(ds);
                 dt = ds.Tables[0];
                 dataGridView1.DataSource = dt;
+
+                dataGridView1.Size = new Size(833, 250);
             }
             else if (current_table == "Contract_Goods")
             {
@@ -71,9 +92,27 @@ namespace RadProject
                 dt = ds.Tables[0];
                 dataGridView1.DataSource = dt;
                 dataGridView1.Columns["contract_goods_id"].DisplayIndex = 0;
+                dataGridView1.Size = new Size(833, 511);
             }
 
             dataGridView1.Sort(dataGridView1.Columns[current_table.ToLower() + "_id"], ListSortDirection.Ascending);
+        }
+
+        private DataTable select_all_goods_from_contract(int id) {
+            DataSet ds = new DataSet();
+            DataTable dt = new DataTable();
+
+            string sql = @"SELECT go.* FROM Contract ct
+                            JOIN Contract_goods cg ON ct.contract_id = cg.contract_id and ct.contract_id = " + id + " " +
+                            "JOIN Goods go ON cg.goods_id = go.goods_id;";
+
+            //MessageBox.Show(sql);
+
+            NpgsqlDataAdapter da = new NpgsqlDataAdapter(sql, this.con);
+            ds.Reset();
+            da.Fill(ds);
+            dt = ds.Tables[0];
+            return dt;
         }
 
         private void label1_Click(object sender, EventArgs e)
@@ -143,6 +182,18 @@ namespace RadProject
             com.Parameters.AddWithValue("id", id);
             com.ExecuteNonQuery();
             update_view(current_table);
+        }
+
+        private void dataGridView1_CellClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (current_table != "Contract") return;
+
+            if (this.Controls.Contains(goods))
+                goods.Columns.Clear();
+
+            
+            goods.DataSource = select_all_goods_from_contract((int)dataGridView1.CurrentRow.Cells["Contract_id"].Value);
+            this.Controls.Add(goods);
         }
     }
 }
